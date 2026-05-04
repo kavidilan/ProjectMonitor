@@ -4,11 +4,6 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recha
 import CustomTooltip from './CustomTooltip';
 
 const DASHBOARD_BUDGET_LINES = [
-  'Infrastructure',
-  'Transport',
-  'Utilities',
-  'Housing',
-  'Community',
   'Essential Maintenance of Government Housing Schemes',
   'Techcity',
   'Clean Sri Lanka',

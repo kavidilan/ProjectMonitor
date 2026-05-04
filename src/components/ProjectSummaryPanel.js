@@ -392,7 +392,7 @@ const ProjectSummaryPanel = ({ project, onClose, onSave, isVO, fullPage = false 
                     { label: 'TEC (LKR Mn)', value: proj.tec },
                     { label: 'Awarded Sum', value: proj.awardedSum },
                     { label: 'Revised Cost', value: proj.revisedCost },
-                    { label: 'Alloc. 2026', value: proj.allocation2026 },
+                    { label: 'Alloc 2026', value: proj.allocation2026 },
                   ].filter(r => r.value).map(({ label, value }) => (
                     <div key={label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
                       borderRadius: 8, padding: '8px 10px' }}>

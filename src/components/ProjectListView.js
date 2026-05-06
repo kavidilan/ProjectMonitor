@@ -57,6 +57,15 @@ const getPhysicalPct = (proj) => {
   return 0;
 };
 
+// Behind Schedule = end date has passed today AND not yet complete
+const isOverdue = (proj) => {
+  if (!proj?.endDate) return false;
+  const end = new Date(proj.endDate);
+  if (isNaN(end.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end < today && getPhysicalPct(proj) < 100;
+};
 
 const ProjectListView = ({ projects, filter, onOpenModal, onBack, isVO }) => {
   const [aid, setAid] = useState(null);
@@ -69,16 +78,17 @@ const ProjectListView = ({ projects, filter, onOpenModal, onBack, isVO }) => {
       list=list.filter(p=>getPhysicalPct(p)>=100);
     }
     if(filter.type==='ONGOING')   list=list.filter(p=>getPhysicalPct(p)<100);
-    if(filter.type==='DELAYED')   list=list.filter(p=>p.reasonsForDelays&&p.reasonsForDelays.trim()!=='');
+    // Behind Schedule: end date has passed today AND not yet complete — matches Dashboard stat card
+    if(filter.type==='DELAYED')   list=list.filter(p=>isOverdue(p));
     if(pf!=='ALL') list=list.filter(p=>p.projectName===pf);
     return list;
   },[projects,filter,pf]);
 
   const ap = displayedProjects.find(p=>p.id===aid);
 
-  const title = filter.type==='ALL'?'Total Projects':
-                filter.type==='ONGOING'?'Ongoing Projects':
-                filter.type==='DELAYED'?'Delayed Projects':'Completed Projects';
+  const title = filter.type==='ALL'   ? 'Total Projects'     :
+                filter.type==='ONGOING'  ? 'Ongoing Projects'    :
+                filter.type==='DELAYED'  ? 'Behind Schedule Projects' : 'Completed Projects';
 
   return (
     <div style={{animation:'slideUp 0.22s ease'}}>

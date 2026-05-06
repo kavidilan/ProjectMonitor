@@ -6,9 +6,9 @@ const UDA_LOGO_SRC = '/uda-logo.png';
    CREDENTIALS — update these to change logins
    ============================================================= */
 const CREDENTIALS = [
-  { username: 'dg_chief',       password: 'DG#Secure2026',      role: 'DG',        department: 'ALL',        label: 'Director General',       short: 'DG',  access: 'Full Access — Read & Write' },
-  { username: 'pmu_planning',   password: 'PMU#Plan2026',       role: 'PMU',       department: 'Planning',   label: 'PMU Officer',            short: 'PMU', access: 'Read & Write' },
-  { username: 'urban_controller', password: 'Urban#Ctrl2026',   role: 'DDG_URBAN', department: 'Urban Dev',  label: 'DDG Urban Development',  short: 'UD',  access: 'Read & Write' },
+  { username: 'admin',       password: 'admin123',      role: 'admin',        department: 'ALL',        label: 'admin',       short: 'admin',  access: 'Full Access — Read & Write' },
+  { username: 'pmu',   password: 'pmu123',       role: 'PMU',       department: 'Pmu',   label: 'PMU Officer',            short: 'PMU', access: 'Read & Write' },
+  { username: 'user', password: 'user123',   role: 'user', department: 'Urban Dev',  label: 'Urban Development',  short: 'UD',  access: 'Read & Write' },
   { username: 'dg_strategy',    password: 'DG#Ops2026!',        role: 'DG',        department: 'Operations', label: 'Director General Ops',   short: 'DG',  access: 'Full Access — Read & Write' },
   { username: 'pmu_north_hub',  password: 'PMU#North2026',      role: 'PMU',       department: 'North Zone', label: 'PMU North Coordinator',  short: 'PMU', access: 'Read & Write' },
   { username: 'pmu_south_hub',  password: 'PMU#South2026',      role: 'PMU',       department: 'South Zone', label: 'PMU South Coordinator',  short: 'PMU', access: 'Read & Write' },
@@ -18,9 +18,9 @@ const CREDENTIALS = [
 
 /* Hint data shown on login cards */
 const PORTAL_HINTS = [
-  { key: 'DG',        icon: '👑', color: '#0ea5e9', gradient: 'linear-gradient(135deg,#0369a1,#0ea5e9)',  title: 'Director General',     desc: 'Full system access — portfolio governance & executive reporting.', badge: 'ADMIN'   },
+  { key: 'ADMIN',        icon: '👑', color: '#0ea5e9', gradient: 'linear-gradient(135deg,#0369a1,#0ea5e9)',  title: 'Admin',     desc: 'Full system access — portfolio governance & executive reporting.', badge: 'ADMIN'   },
   { key: 'PMU',       icon: '📋', color: '#7c3aed', gradient: 'linear-gradient(135deg,#6d28d9,#7c3aed)',  title: 'PMU Officer',          desc: 'Planning coordination, reporting quality checks & tracking.',       badge: 'PMU'     },
-  { key: 'DDG_URBAN', icon: '🏙️', color: '#059669', gradient: 'linear-gradient(135deg,#047857,#10b981)', title: 'DDG Urban Dev',        desc: 'Urban project execution, field updates & milestone control.',       badge: 'USER'    },
+  { key: 'User', icon: '🏙️', color: '#059669', gradient: 'linear-gradient(135deg,#047857,#10b981)', title: 'Urban Dev',        desc: 'Urban project execution, field updates & milestone control.',       badge: 'USER'    },
 ];
 
 export default function LoginPage({ onLogin }) {

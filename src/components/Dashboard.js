@@ -22,7 +22,7 @@ const getLatestCumulativeValue = (proj, progressKey, measuresKey) => {
   // 1. Scan monthlyProgress in reverse order (latest month first)
   const mp = proj?.monthlyProgress || {};
   for (let i = MONTH_ORDER.length - 1; i >= 0; i--) {
-    const month = MONTH_ORDER[i];
+    const month = MONTH_ORDER[i];        
     const raw = mp[month]?.[progressKey];
     if (raw !== undefined && raw !== null && raw !== '') {
       const n = parseFloat(String(raw).replace('%', ''));
@@ -103,6 +103,16 @@ const getBudgetStatus = (proj) => getFinancialProgress(proj) <= 100 ? 'green' : 
 const getPhysicalPct  = (proj) => getPhysicalProgress(proj);
 const getFinancialPct = (proj) => getFinancialProgress(proj);
 
+// Behind Schedule = end date has passed today AND project not yet complete
+const isOverdue = (proj) => {
+  if (!proj?.endDate) return false;
+  const end = new Date(proj.endDate);
+  if (isNaN(end.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end < today && getPhysicalPct(proj) < 100;
+};
+
 
 const STAT_CONFIG = [
   {
@@ -111,17 +121,17 @@ const STAT_CONFIG = [
     getVal:(f)=>f.length,
   },
   {
-    id:'ONGOING',   icon:'⏳', lbl:'Ongoing (Physical < 100%)',
+    id:'ONGOING',   icon:'⏳', lbl:'Ongoing',
     color:'#d97706',
     getVal:(f)=>f.filter(p=>getPhysicalPct(p)<100).length,
   },
   {
-    id:'DELAYED',   icon:'⚠️', lbl:'Behind Schedule (Variance < 0)',
+    id:'DELAYED',   icon:'⚠️', lbl:'Behind Schedule',
     color:'#dc2626',
-    getVal:(f)=>f.filter(p=>getPhysicalVariance(p)<0).length,
+    getVal:(f)=>f.filter(p=>isOverdue(p)).length,
   },
   {
-    id:'COMPLETED', icon:'✅', lbl:'Completed (Physical >= 100%)',
+    id:'COMPLETED', icon:'', lbl:'Completed',
     color:'#0f766e',
     getVal:(f)=>f.filter(p=>getPhysicalPct(p)>=100).length,
   },
@@ -164,11 +174,6 @@ function ProgressPieCard({ title, subtitle, value, palette, variance, status }) 
           <div className="dc-p">{isOver100 ? displayPct.toFixed(1) : pct.toFixed(1)}%</div>
           <div className="dc-s">{isOver100 ? 'over target' : 'average'}</div>
         </div>
-      </div>
-      <div style={{ marginTop: 12, padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, borderLeft: `3px solid ${statusColor}` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginBottom: 4 }}>{statusLabel}</div>
-        <div style={{ fontSize: 11, color: 'var(--tx-3)' }}>Variance: <span style={{ fontWeight: 700, color: variance >= 0 ? '#10b981' : '#ef4444' }}>{variance >= 0 ? '+' : ''}{variance.toFixed(1)}</span></div>
-        <div style={{ fontSize: 10, color: 'var(--tx-4)', marginTop: 4 }}>Actual: {displayPct.toFixed(1)}%</div>
       </div>
     </div>
   );
@@ -222,7 +227,7 @@ const Dashboard = ({ projects, onCardClick, selectedProjectId, onSelectProject }
                 <span className="dash-stat-icon">{s.icon}</span>
                 <div style={{ minWidth:0 }}>
                   <div className="dash-stat-label">{s.lbl}</div>
-                  <div className="dash-stat-cta">Click to view list →</div>
+                  {s.id !== 'DELAYED' && <div className="dash-stat-cta">Click to view list →</div>}
                 </div>
               </div>
               <div className="dash-stat-value">{s.getVal(filtered)}</div>
@@ -266,7 +271,7 @@ const Dashboard = ({ projects, onCardClick, selectedProjectId, onSelectProject }
 
       <div className="cr2" style={{ marginTop:4 }}>
         <ProgressPieCard 
-          title="Physical Progress (PAC ÷ PTC)" 
+          title="Physical Progress" 
           subtitle={selectedProject ? 'Selected project completion' : 'Average across current filter'} 
           value={pp} 
           variance={selectedProject ? getPhysicalVariance(selectedProject) : filtered.reduce((a, p) => a + getPhysicalVariance(p), 0) / Math.max(1, filtered.length)}
@@ -274,7 +279,7 @@ const Dashboard = ({ projects, onCardClick, selectedProjectId, onSelectProject }
           palette={PIE_COLORS.physical} 
         />
         <ProgressPieCard 
-          title="Financial Progress (FAC ÷ FTC)" 
+          title="Financial Progress" 
           subtitle={selectedProject ? 'Selected project spending' : 'Average across current filter'} 
           value={fp} 
           variance={selectedProject ? getFinancialVariance(selectedProject) : filtered.reduce((a, p) => a + getFinancialVariance(p), 0) / Math.max(1, filtered.length)}

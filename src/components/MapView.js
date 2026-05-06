@@ -24,20 +24,27 @@ const SRI_LANKA_BOUNDS = [
 
 const budgetColor = (budgetLine = '') => {
   const k = String(budgetLine).toLowerCase();
+  if (k.includes('uda own funded projects')) return '#6366f1';
+  if (k.includes('siyak nagara')) return '#0891b2';
+  if (k.includes('tourism promotion and city branding')) return '#0ea5e9';
+  if (k.includes('clean sri lanka')) return '#22c55e';
+  if (k.includes('jaffna townhall')) return '#ec4899';
+  if (k.includes('solid waste management')) return '#10b981';
+  if (k.includes('techcity')) return '#f97316';
+  if (k.includes('consultancy projects')) return '#8b5cf6';
+  if (k.includes('chaina grant')) return '#f59e0b';
+  if (k.includes('project progress format mi')) return '#14b8a6';
+  if (k.includes('urp 2026 - as a continuation')) return '#2563eb';
+  if (k.includes('urp- as a new contract')) return '#ef4444';
+  if (k.includes('aiib')) return '#a855f7';
+  if (k.includes('25 cities')) return '#06b6d4';
+  if (k.includes('10 cities')) return '#db2777';
+  if (k.includes('5 mn projects')) return '#7c3aed';
   if (k.includes('transport')) return '#f59e0b';
   if (k.includes('housing')) return '#8b5cf6';
   if (k.includes('utility')) return '#22c55e';
   if (k.includes('community')) return '#ef4444';
   if (k.includes('tourism')) return '#0ea5e9';
-  if (k.includes('clean sri lanka')) return '#22c55e';
-  if (k.includes('techcity')) return '#f97316';
-  if (k.includes('siyak nagara')) return '#0891b2';
-  if (k.includes('uda own funded')) return '#6366f1';
-  if (k.includes('jaffna townhall')) return '#ec4899';
-  if (k.includes('solid waste')) return '#10b981';
-  if (k.includes('consultancy')) return '#8b5cf6';
-  if (k.includes('25 cities')) return '#06b6d4';
-  if (k.includes('10 cities')) return '#a855f7';
   return '#0ea5e9';
 };
 

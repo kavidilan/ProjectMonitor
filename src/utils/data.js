@@ -18,24 +18,23 @@ export const measureTypeMeta = {
   F_PROGRESS: { label: 'F_PROGRESS', description: 'Financial progress tracker' },
 };
 
-export const budgetLineConfig = {   
-  Infrastructure: { color: '#38bdf8' },
-  Transport: { color: '#f59e0b' },  
-  Utilities: { color: '#22c55e' },
-  Housing: { color: '#8b5cf6' },   
-  Community: { color: '#ef4444' },   
-  'Essential Maintenance of Government Housing Schemes': { color: '#14b8a6' },
-  Techcity: { color: '#f97316' },
-  'Clean Sri Lanka': { color: '#22c55e' },
-  'Tourism Promotion and City Branding': { color: '#0ea5e9' },  
-  'Siyak Nagara': { color: '#0891b2' },
+export const budgetLineConfig = {
   'UDA Own Funded Projects': { color: '#6366f1' },
+  'Siyak Nagara': { color: '#0891b2' },
+  'Tourism Promotion and City Branding': { color: '#0ea5e9' },
+  'Clean Sri Lanka': { color: '#22c55e' },
   'Jaffna Townhall': { color: '#ec4899' },
   'Solid Waste Management': { color: '#10b981' },
-  'TechCity': { color: '#f59e0b' },
+  Techcity: { color: '#f97316' },
   'Consultancy Projects': { color: '#8b5cf6' },
+  'Chaina Grant': { color: '#f59e0b' },
+  'Project Progress Format MI': { color: '#14b8a6' },
+  'URP 2026 - as a continuation': { color: '#2563eb' },
+  'URP- as a new contract': { color: '#ef4444' },
+  AIIB: { color: '#a855f7' },
   '25 Cities': { color: '#06b6d4' },
-  '10 Cities': { color: '#a855f7' },
+  '10 Cities': { color: '#db2777' },
+  '5 Mn Projects': { color: '#7c3aed' },
 };
 
 const emptyMeasures = () => measureTypes.reduce((acc, key) => { 

@@ -154,34 +154,35 @@ export default function GlobalStyles() {
       .sidebar-brand {
         display: flex;
         align-items: center;
-        gap: 11px;
-        padding: 20px 18px 16px;
+        gap: 12px;
+        padding: 18px 16px 16px;
         border-bottom: 1px solid rgba(255,255,255,0.07);
         position: relative;
         z-index:1;
-        min-height: 72px;
+        min-height: 82px;
+        background: rgba(255,255,255,0.02);
       }
 
       .sidebar-logo {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
         object-fit: contain;
         background: #fff;
-        border: 1.5px solid rgba(255,255,255,0.15);
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.12);
+        padding: 3px;
       }
 
       .sidebar-logo-fallback {
-        width: 38px; height: 38px;
-        border-radius: 10px;
+        width: 52px; height: 52px;
+        border-radius: 12px;
         display: inline-flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, var(--acc), var(--purple));
+        background: linear-gradient(135deg, #e85d04, #f48c06);
         color: #fff;
-        font-size: 11px; font-weight: 900; letter-spacing: 0.06em;
+        font-size: 13px; font-weight: 900; letter-spacing: 0.06em;
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        box-shadow: 0 4px 16px rgba(232,93,4,0.5);
       }
 
       .sidebar-brand-text {
@@ -191,23 +192,25 @@ export default function GlobalStyles() {
 
       .sidebar-app-name {
         font-family: var(--fh);
-        font-size: 14px;
-        font-weight: 700;
+        font-size: 13.5px;
+        font-weight: 800;
         color: #fff;
         line-height: 1.2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        letter-spacing: -0.2px;
       }
 
       .sidebar-app-sub {
-        font-size: 10px;
+        font-size: 9.5px;
         color: rgba(255,255,255,0.45);
         font-weight: 600;
-        margin-top: 2px;
+        margin-top: 3px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        letter-spacing: 0.02em;
       }
 
       /* ── NAV ITEMS ── */

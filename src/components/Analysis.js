@@ -5,10 +5,10 @@ import { budgetLineConfig } from '../utils/data';
 
 const monthsOrder = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
-const getProgressFromMeasures = (proj,numKey,denKey,strategy='avg',fallbackPct) => {
-  const measures=proj?.measures||{};let values=[];
+const getProgressFromMeasures = (proj,monthlyNumKey,monthlyDenKey,numKey,denKey,strategy='avg',fallbackPct) => {
+  const measures=proj?.measures||{};const monthlyProgress=proj?.monthlyProgress||{};let values=[];
   for(const m of monthsOrder){
-    const numRaw=measures?.[numKey]?.[m];const denRaw=measures?.[denKey]?.[m];
+    const numRaw=monthlyProgress?.[m]?.[monthlyNumKey] ?? measures?.[numKey]?.[m];const denRaw=monthlyProgress?.[m]?.[monthlyDenKey] ?? measures?.[denKey]?.[m];
     if(numRaw===''||denRaw===''||numRaw===undefined||denRaw===undefined)continue;
     const num=Number(numRaw);const den=Number(denRaw);
     if(!Number.isFinite(num)||!Number.isFinite(den)||den===0)continue;
@@ -20,7 +20,7 @@ const getProgressFromMeasures = (proj,numKey,denKey,strategy='avg',fallbackPct) 
   else{val=values.reduce((a,v)=>a+v,0)/values.length;}
   return Math.round(Math.max(0,Math.min(100,val))*10)/10;
 };
-const getPhysicalPct=(proj)=>getProgressFromMeasures(proj,'PAC','PTC','avg',proj?.physicalProgress);
+const getPhysicalPct=(proj)=>getProgressFromMeasures(proj,'pp','pt','PAC','PTC','avg',proj?.physicalProgress);
 
 const Analysis = ({projects}) => {
   const pp=useMemo(()=>{

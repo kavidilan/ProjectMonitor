@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const UDA_LOGO_SRC = '/uda-logo.png';
+
 /* =============================================================
    CREDENTIALS — update these to change logins
    ============================================================= */
@@ -103,15 +105,21 @@ export default function LoginPage({ onLogin }) {
     }
 
     .lp-logo-ring {   
-      width: 72px; height: 72px;
+      width: 100px; height: 100px;
       border-radius: 20px;
-      background: linear-gradient(135deg,#0369a1,#0ea5e9,#6366f1);
+      background: #ffffff;
       display: inline-flex; align-items: center; justify-content: center;
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 18px; font-weight: 900; color: #fff;
-      letter-spacing: 0.06em;
-      box-shadow: 0 12px 32px rgba(14,165,233,0.32);
+      box-shadow: 0 16px 48px rgba(232,93,4,0.3), 0 0 0 4px rgba(232,93,4,0.15);
       margin-bottom: 20px;
+      overflow: hidden;
+      padding: 6px;
+    }
+    .lp-logo-ring img,
+    .lp-brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
 
     .lp-header h1 {
@@ -261,14 +269,15 @@ export default function LoginPage({ onLogin }) {
 
     .lp-brand-top { position:relative; z-index:1; }
     .lp-brand-logo {
-      width:56px; height:56px; border-radius:14px;
-      background:rgba(255,255,255,0.18);
-      border:1.5px solid rgba(255,255,255,0.32);
-      backdrop-filter:blur(8px);
-      display:inline-flex; align-items:center; justify-content:center;
-      font-family:'Space Grotesk',sans-serif;
-      font-size:14px; font-weight:900; letter-spacing:0.06em;
-      margin-bottom:20px;
+      width: 80px; height: 80px; border-radius: 16px;
+      background: rgba(255,255,255,0.95);
+      border: 2px solid rgba(255,255,255,0.4);
+      backdrop-filter: blur(8px);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+      overflow: hidden;
+      padding: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
     }
     .lp-brand-top h2 {
       font-family:'Space Grotesk',sans-serif;
@@ -430,9 +439,16 @@ export default function LoginPage({ onLogin }) {
         /* ─────────── LANDING ─────────── */
         <div className="lp-landing">
           <div className="lp-header">
-            <div className="lp-logo-ring">UDA</div>
+            <div className="lp-logo-ring">
+              <img src={UDA_LOGO_SRC} alt="Urban Development Authority" />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#5a7a94', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+              <span style={{ height: 1, width: 28, background: '#c5d9e8', display: 'inline-block' }} />
+              Urban Development Authority
+              <span style={{ height: 1, width: 28, background: '#c5d9e8', display: 'inline-block' }} />
+            </div>
             <h1>Project Monitor Suite</h1>
-            <p>Urban Development Authority — Annual Action Plan 2026<br />Centralized portfolio control for strategic planning & progress oversight.</p>
+            <p>Annual Action Plan 2026<br />Centralized portfolio control for strategic planning &amp; progress oversight.</p>
           </div>
 
           <div className="lp-portals">
@@ -462,7 +478,9 @@ export default function LoginPage({ onLogin }) {
             <div className="lp-brand-orb" />
 
             <div className="lp-brand-top">
-              <div className="lp-brand-logo">UDA</div>
+              <div className="lp-brand-logo">
+                <img src={UDA_LOGO_SRC} alt="Urban Development Authority" />
+              </div>
               <h2>Project Monitor Suite</h2>
               <p>Annual Action Plan 2026 — Centralized control room for portfolio governance and progress visibility.</p>
             </div>

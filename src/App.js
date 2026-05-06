@@ -84,6 +84,7 @@ export default function App() {
   const [projects, setProjects] = useState(() => cloneInitialProjects());
   const [loading, setLoading] = useState(false);
   const [bf, setBf] = useState('ALL');
+  const [selectedDashboardProjectId, setSelectedDashboardProjectId] = useState('');
   const [ab, setAb] = useState('');
   const [ap2, setAp2] = useState('');
   const [modalProject, setModalProject] = useState(null);
@@ -102,6 +103,46 @@ export default function App() {
   const vis = projects;
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
+  const getMeasureProgress = (project, numeratorProgressKey, denominatorProgressKey, numeratorMeasureKey, denominatorMeasureKey, fallbackField) => {
+    const monthlyValues = months
+      .map((month) => {
+        const numeratorRaw = project?.monthlyProgress?.[month]?.[numeratorProgressKey] ?? project?.measures?.[numeratorMeasureKey]?.[month];
+        const denominatorRaw = project?.monthlyProgress?.[month]?.[denominatorProgressKey] ?? project?.measures?.[denominatorMeasureKey]?.[month];
+        if (numeratorRaw === '' || denominatorRaw === '' || numeratorRaw === undefined || denominatorRaw === undefined) return null;
+        // Strip '%' if present before converting to number
+        const numStr = String(numeratorRaw).replace('%', '');
+        const denStr = String(denominatorRaw).replace('%', '');
+        const numerator = Number(numStr);
+        const denominator = Number(denStr);
+        if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) return null;
+        return (numerator / denominator) * 100;
+      })
+      .filter((value) => value !== null && Number.isFinite(value));
+
+    if (monthlyValues.length) {
+      const avg = monthlyValues.reduce((sum, value) => sum + value, 0) / monthlyValues.length;
+      return `${Math.max(0, Math.min(100, avg)).toFixed(1)}%`;
+    }
+
+    return project?.[fallbackField] || '';
+  };
+
+  const normalizeProgressFields = (project) => ({
+    ...project,
+    physicalProgress: getMeasureProgress(project, 'pp', 'pt', 'PAC', 'PTC', 'physicalProgress'),
+    financialProgress: getMeasureProgress(project, 'fp', 'ft', 'FAC', 'FTC', 'financialProgress'),
+  });
+
+  // Development mode - log API configuration
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Project Monitor - Development Info:');
+      console.log(`   API_BASE: ${API_BASE}`);
+      console.log(`   REACT_APP_API_BASE env: ${process.env.REACT_APP_API_BASE || '(not set)'}`);
+      console.log(`   Node Env: ${process.env.NODE_ENV}`);
+    }
+  }, [API_BASE]);
+
   const markSync = (partial) => {
     const stamp = new Date().toLocaleTimeString();
     setSyncInfo((prev) => ({ ...prev, ...partial, at: stamp }));
@@ -116,26 +157,42 @@ export default function App() {
     }
   };
 
+  const logFetchError = (endpoint, error, retryCount = 0) => {
+    console.error(`❌ Fetch Failed - Attempt ${retryCount + 1}:`);
+    console.error(`   Endpoint: ${endpoint}`);
+    console.error(`   Error: ${error?.message || error}`);
+    if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
+      console.error(`   ⚠️  Network Error - Check if:`);
+      console.error(`       1. Backend server is running at ${API_BASE}`);
+      console.error(`       2. CORS is properly configured`);
+      console.error(`       3. Your internet connection is active`);
+    }
+  };
+
   const reloadProjects = async () => {
     if (!user) return;
     try {
       setLoading(true);
       markSync({ status: 'syncing', message: 'Reloading projects from MongoDB...' });
-      const res = await fetch(`${API_BASE}/api/projects`, { headers: { 'x-user-role': user.role, 'x-user-name': user.username } });
+      const endpoint = `${API_BASE}/api/projects`;
+      const res = await fetch(endpoint, { headers: { 'x-user-role': user.role, 'x-user-name': user.username } });
       if (!res.ok) {
         const msg = await readErrorMessage(res);
         throw new Error(`Reload failed (${res.status})${msg ? `: ${msg}` : ''}`);
       }
       const data = await res.json();
       if (Array.isArray(data) && data.length) {
-        setProjects(data);
+        setProjects(data.map(normalizeProgressFields));
         markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: `Loaded ${data.length} projects from MongoDB` });
+        console.log(`✅ Reloaded ${data.length} projects from MongoDB`);
       } else {
         setProjects(cloneInitialProjects());
         markSync({ source: 'local-seed', status: 'fallback', code: String(res.status), message: 'MongoDB returned empty list.' });
+        console.warn('⚠️ MongoDB returned empty list, using local seed');
       }
     } catch (e) {
-      toast(`Failed to reload from server. ${e?.message || ''}`, 'warn');
+      logFetchError(`${API_BASE}/api/projects`, e);
+      toast(`Failed to reload from server. ${e?.message || 'Check console for details.'}`, 'warn');
       setProjects(cloneInitialProjects());
       markSync({ source: 'local-seed', status: 'error', code: 'ERR', message: e?.message || 'Reload failed.' });
     } finally {
@@ -144,26 +201,39 @@ export default function App() {
   };
 
   const saveProjectsToServer = async (projectsToSave) => {
-    if (!user) return;
+    if (!user) return { ok: false, status: 401, message: 'Not authenticated' };
     markSync({ status: 'syncing', message: 'Saving project changes to MongoDB...' });
-    const res = await fetch(`${API_BASE}/api/projects`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-user-role': user.role, 'x-user-name': user.username },
-      body: JSON.stringify(projectsToSave),
-    });
-    if (res.status === 403) {
-      const msg = await readErrorMessage(res);
-      markSync({ source: 'mongodb', status: 'error', code: '403', message: msg || 'Forbidden.' });
-      toast('You are not allowed to save (read-only role).', 'warn');
-      return { ok: false, status: 403, message: msg };
+    try {
+      const endpoint = `${API_BASE}/api/projects`;
+      console.log(`💾 Saving ${projectsToSave.length} projects to: ${endpoint}`);
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-user-role': user.role, 'x-user-name': user.username },
+        body: JSON.stringify(projectsToSave),
+      });
+      if (res.status === 403) {
+        const msg = await readErrorMessage(res);
+        markSync({ source: 'mongodb', status: 'error', code: '403', message: msg || 'Forbidden.' });
+        toast('You are not allowed to save (read-only role).', 'warn');
+        console.warn('❌ Save failed: Access denied (403)');
+        return { ok: false, status: 403, message: msg || 'Access denied' };
+      }
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        console.error(`❌ Save failed with status ${res.status}: ${msg}`);
+        markSync({ source: 'mongodb', status: 'error', code: String(res.status), message: msg || 'Save failed' });
+        throw new Error(`HTTP ${res.status}${msg ? `: ${msg}` : ''}`);
+      }
+      markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: 'Changes saved to MongoDB' });
+      console.log('✅ Projects saved successfully');
+      return { ok: true, status: res.status };
+    } catch (e) {
+      const errorMsg = e?.message || 'Network error or server unreachable';
+      console.error(`❌ Save error: ${errorMsg}`);
+      logFetchError(`${API_BASE}/api/projects`, e);
+      markSync({ source: 'mongodb', status: 'error', code: 'ERR', message: errorMsg });
+      throw new Error(errorMsg);
     }
-    if (!res.ok) {
-      const msg = await readErrorMessage(res);
-      markSync({ source: 'mongodb', status: 'error', code: String(res.status), message: msg || 'Save failed' });
-      throw new Error(`Save failed (${res.status})${msg ? `: ${msg}` : ''}`);
-    }
-    markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: 'Changes saved to MongoDB' });
-    return { ok: true, status: res.status };
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,7 +243,9 @@ export default function App() {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/projects`, { headers: { 'x-user-role': user.role, 'x-user-name': user.username } });
+        console.log(`📡 Loading projects from API: ${API_BASE}/api/projects`);
+        const endpoint = `${API_BASE}/api/projects`;
+        const res = await fetch(endpoint, { headers: { 'x-user-role': user.role, 'x-user-name': user.username } });
         if (!res.ok) {
           const msg = await readErrorMessage(res);
           throw new Error(`Failed to load projects (${res.status})${msg ? `: ${msg}` : ''}`);
@@ -181,15 +253,18 @@ export default function App() {
         const data = await res.json();
         if (cancelled) return;
         if (Array.isArray(data) && data.length) {
-          setProjects(data);
+          setProjects(data.map(normalizeProgressFields));
           markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: `Loaded ${data.length} projects from MongoDB` });
+          console.log(`✅ Successfully loaded ${data.length} projects`);
         } else {
           setProjects(cloneInitialProjects());
           markSync({ source: 'local-seed', status: 'fallback', code: String(res.status), message: 'MongoDB returned empty list.' });
+          console.warn('⚠️ API returned empty list, using local seed data');
         }
       } catch (e) {
         if (!cancelled) {
-          toast(`Failed to load from server. ${e?.message || ''}`, 'warn');
+          logFetchError(`${API_BASE}/api/projects`, e);
+          toast(`Failed to load from server. Using local data. Check console for details.`, 'warn');
           setProjects(cloneInitialProjects());
           markSync({ source: 'local-seed', status: 'error', code: 'ERR', message: e?.message || 'Load failed.' });
         }
@@ -207,7 +282,14 @@ export default function App() {
   }, [user, loading, vis, toast]);
 
   const hpc = (id, f, v) => setProjects(ps => ps.map(p => p.id === id ? { ...p, [f]: v } : p));
-  const hmc = (id, k, m, v) => setProjects(ps => ps.map(p => p.id === id ? { ...p, measures: { ...p.measures, [k]: { ...(p.measures?.[k] || {}), [m]: v } } } : p));
+  const hmc = (id, k, m, v) => setProjects(ps => ps.map((p) => {
+    if (p.id !== id) return p;
+    const nextProject = {
+      ...p,
+      measures: { ...p.measures, [k]: { ...(p.measures?.[k] || {}), [m]: v } },
+    };
+    return normalizeProgressFields(nextProject);
+  }));
   const hdel = async (id) => {
     const row = projects.find((p) => p.id === id);
     if (!row) return;
@@ -263,30 +345,69 @@ export default function App() {
     setAp2(''); toast('New project row added', 'success');
   };
 
-  const handleSaveModal = (updatedProj) => {
+  const handleSaveModal = async (updatedProj, retryCount = 0) => {
+    const maxRetries = 2;
     const next = projects.map(p => p.id === updatedProj.id ? updatedProj : p);
     setProjects(next);
     toast('Saving project management data…', 'info');
-    (async () => {
-      try {
-        const r = await saveProjectsToServer(next);
-        if (!r?.ok) return;
-        toast('Project management data saved', 'success');
-        await reloadProjects();
-      } catch (e) { toast('Save failed. Please try again.', 'error'); }
-    })();
+    try {
+      const r = await saveProjectsToServer(next);
+      if (!r?.ok) {
+        if (retryCount < maxRetries) {
+          toast(`Save failed (${r?.status || 'unknown'}). Retrying…`, 'warn');
+          setTimeout(() => handleSaveModal(updatedProj, retryCount + 1), 2000);
+        } else {
+          toast('Save failed after multiple attempts. Please try again.', 'error');
+        }
+        return;
+      }
+      toast('✓ Project management data saved', 'success');
+      await reloadProjects();
+    } catch (e) {
+      if (retryCount < maxRetries) {
+        toast(`Save failed: ${e?.message || 'Unknown error'}. Retrying…`, 'warn');
+        setTimeout(() => handleSaveModal(updatedProj, retryCount + 1), 2000);
+      } else {
+        toast(`Save failed after multiple attempts: ${e?.message || 'Please try again.'}`, 'error');
+      }
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async (retryCount = 0) => {
+    const maxRetries = 2;
     toast('Saving progress data…', 'info');
-    (async () => {
-      try {
-        const r = await saveProjectsToServer(projects);
-        if (!r?.ok) return;
-        toast('Progress data saved', 'success');
-        await reloadProjects();
-      } catch (e) { toast('Save failed. Please try again.', 'error'); }
-    })();
+    try {
+      const r = await saveProjectsToServer(projects);
+      if (!r?.ok) {
+        if (retryCount < maxRetries) {
+          const retryAction = () => {
+            toast(`Retrying save (attempt ${retryCount + 2}/${maxRetries + 1})…`, 'info');
+            handleSave(retryCount + 1);
+          };
+          // Show error toast with hint to retry
+          toast(`Save failed (${r?.status || 'unknown'}). Click to try again.`, 'error');
+          // Store retry callback for potential retry (or show in a better way)
+          window._lastSaveRetry = retryAction;
+        } else {
+          toast('Save failed after multiple attempts. Please check your connection and try again later.', 'error');
+        }
+        return;
+      }
+      toast('✓ Progress data saved successfully', 'success');
+      await reloadProjects();
+    } catch (e) {
+      if (retryCount < maxRetries) {
+        const retryAction = () => {
+          toast(`Retrying save (attempt ${retryCount + 2}/${maxRetries + 1})…`, 'info');
+          handleSave(retryCount + 1);
+        };
+        toast(`Save failed: ${e?.message || 'Unknown error'}. Retrying…`, 'warn');
+        // Auto-retry after 2 seconds
+        setTimeout(retryAction, 2000);
+      } else {
+        toast(`Save failed after multiple attempts: ${e?.message || 'Please try again.'}`, 'error');
+      }
+    }
   };
 
   /* ── helpers ── */
@@ -359,7 +480,6 @@ export default function App() {
               />
               <span className="sidebar-logo-fallback" style={{ display: 'none' }}>UDA</span>
               <div className="sidebar-brand-text">
-                <div className="sidebar-app-name">Project Monitor</div>
                 <div className="sidebar-app-sub">Annual Action Plan 2026</div>
               </div>
             </div>
@@ -410,9 +530,6 @@ export default function App() {
             {/* ── TOP HEADER ── */}
             <header className="tbar">
               <div className="tbar-left">
-                <div className="tbar-page-title">
-                  {PAGE_LABELS[currentView] || 'Dashboard'}
-                </div>
               </div>
 
               <div className="tbar-right">
@@ -465,7 +582,7 @@ export default function App() {
 
             {/* ── CONTENT ── */}
             <div className="cnt">
-              {view === 'dashboard'     && <Dashboard projects={vis} onCardClick={(type, budgetLine) => { setListFilter({ type, budgetLine }); setView('projectList'); }} />}
+              {view === 'dashboard'     && <Dashboard projects={vis} selectedProjectId={selectedDashboardProjectId} onSelectProject={setSelectedDashboardProjectId} onCardClick={(type, budgetLine) => { setSelectedDashboardProjectId(''); setListFilter({ type, budgetLine }); setView('projectList'); }} />}
               {view === 'projectList'   && <ProjectListView projects={vis} filter={listFilter} onOpenModal={(proj) => { setDetailProject(proj); setView('projectDetail'); }} onBack={() => setView('dashboard')} isVO={isVO} />}
               {view === 'projectDetail' && detailProject && (
                 <div style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -519,23 +636,8 @@ export default function App() {
             {/* ── FOOTER ── */}
             <footer className="app-footer">
               <div className="app-footer-left">
-                <img
-                  className="app-footer-logo"
-                  src={UDA_LOGO_SRC}
-                  alt="UDA"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fb = e.currentTarget.nextElementSibling;
-                    if (fb) fb.style.display = 'inline-flex';
-                  }}
-                />
-                <span className="app-footer-logo-fallback" style={{ display: 'none' }}>UDA</span>
-                <div>
-                  <div className="app-footer-title">Urban Development Authority</div>
-                  <div className="app-footer-sub">Sri Lanka Government Project Monitoring System</div>
-                </div>
               </div>
-              <div className="app-footer-right">2026 Annual Action Plan</div>
+              <div className="app-footer-right">© 2026 UDA · All rights reserved</div>
             </footer>
           </div>
         </div>

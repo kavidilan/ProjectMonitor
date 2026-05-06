@@ -30,25 +30,29 @@ export default function DataEntryTable({
   hmc,
   hdel,
 }) {
-  const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
 
   /* ── helpers ── */
   const safeLower = (v) => String(v ?? '').toLowerCase();
 
+  // Get projects filtered by budget line (for the project selector dropdown)
+  const projectsInBudgetLine = projects.filter((p) => {
+    return !bf || bf === 'ALL' || p?.budgetLine === bf;
+  });
+
   const filteredProjects = projects.filter((p) => {
     const matchesBudget = !bf || bf === 'ALL' || p?.budgetLine === bf;
+    const matchesProject = !selectedProjectId || p?.id === parseInt(selectedProjectId);
     const matchesSearch =
       safeLower(p?.projectName).includes(safeLower(searchTerm)) ||
       safeLower(p?.id).includes(safeLower(searchTerm)) ||
       safeLower(p?.department).includes(safeLower(searchTerm)) ||
       safeLower(p?.budgetLine).includes(safeLower(searchTerm)) ||
       safeLower(p?.projectNumber).includes(safeLower(searchTerm));
-    const isDelayed = Boolean(p?.reasonsForDelays && String(p.reasonsForDelays).trim());
-    const matchesStatus =
-      filterStatus === 'ALL' ||
-      (filterStatus === 'DELAYED' ? isDelayed : !isDelayed);
-    return matchesBudget && matchesSearch && matchesStatus;
+    return matchesBudget && matchesProject && matchesSearch;
   });
 
   const getRowKey = (p) => p?._id ?? p?.id ?? p?.projectName ?? Math.random();
@@ -78,10 +82,10 @@ export default function DataEntryTable({
     const monthKey = month.toLowerCase();
     const fromMonthlyProgress = p?.monthlyProgress?.[monthKey]?.[sub];
     if (fromMonthlyProgress !== undefined && fromMonthlyProgress !== null && fromMonthlyProgress !== '') {
-      return fromMonthlyProgress;
+      return String(fromMonthlyProgress).replace('%', '');
     }
-    if (sub === 'pt') return p?.measures?.PTC?.[monthKey] ?? '';
-    if (sub === 'pp') return p?.measures?.PAC?.[monthKey] ?? '';
+    if (sub === 'pt') return String(p?.measures?.PTC?.[monthKey] ?? '').replace('%', '');
+    if (sub === 'pp') return String(p?.measures?.PAC?.[monthKey] ?? '').replace('%', '');
     if (sub === 'ft') return p?.measures?.FTC?.[monthKey] ?? '';
     if (sub === 'fp') return p?.measures?.FAC?.[monthKey] ?? '';
     return '';
@@ -442,7 +446,10 @@ export default function DataEntryTable({
             <select
               className="det-input"
               value={bf || 'ALL'}
-              onChange={(e) => typeof setBf === 'function' && setBf(e.target.value)}
+              onChange={(e) => {
+                typeof setBf === 'function' && setBf(e.target.value);
+                setSelectedProjectId(''); // Clear project filter when budget line changes
+              }}
               style={{ minWidth: 220 }}
             >
               <option value="ALL">All Budget Lines</option>
@@ -451,17 +458,21 @@ export default function DataEntryTable({
               ))}
             </select>
 
-            {/* Status filter */}
+            {/* Projects filter */}
             <select
               className="det-input"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={{ minWidth: 150 }}
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              style={{ minWidth: 220 }}
             >
-              <option value="ALL">All Projects</option>
-              <option value="ON_TRACK">On Track</option>
-              <option value="DELAYED">Delayed</option>
+              <option value="">All Projects</option>
+              {projectsInBudgetLine.map((p) => (
+                <option key={p?.id} value={p?.id}>
+                  {p?.projectName} (#{p?.projectNumber})
+                </option>
+              ))}
             </select>
+
           </div>
 
           <div className="det-toolbar-right">
@@ -512,12 +523,85 @@ export default function DataEntryTable({
               Upload Data
             </label>
 
-            <button className="det-btn-save" onClick={() => typeof handleSave === 'function' && handleSave()}>
+            <button 
+              className="det-btn-save" 
+              onClick={async () => {
+                setIsSaving(true);
+                setSaveError(null);
+                try {
+                  if (typeof handleSave === 'function') {
+                    await handleSave();
+                  }
+                  setIsSaving(false);
+                } catch (err) {
+                  setSaveError(err?.message || 'Save failed');
+                  setIsSaving(false);
+                }
+              }}
+              disabled={isSaving}
+              title={saveError ? 'Error saving. Click to retry or use Retry button.' : 'Save all changes to database'}
+              style={{ 
+                opacity: isSaving ? 0.7 : 1,
+                cursor: isSaving ? 'wait' : 'pointer',
+                position: 'relative'
+              }}
+            >
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
               </svg>
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
+
+            {saveError && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 14px',
+                borderRadius: 10,
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                color: '#b91c1c',
+                fontSize: 12,
+                fontWeight: 600,
+              }}>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                {saveError}
+                <button
+                  onClick={async () => {
+                    setIsSaving(true);
+                    setSaveError(null);
+                    try {
+                      if (typeof handleSave === 'function') {
+                        await handleSave();
+                      }
+                      setIsSaving(false);
+                    } catch (err) {
+                      setSaveError(err?.message || 'Save failed');
+                      setIsSaving(false);
+                    }
+                  }}
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '4px 10px',
+                    background: '#b91c1c',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#991b1b'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#b91c1c'}
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -14,44 +14,49 @@ const iconBtn = {
   viewBox: '0 0 24 24',
 };
 
-const getMonthlyValue = (proj, month, key) => {
-  const monthKey = String(month).toLowerCase();
-  const fromMonthlyProgress = proj?.monthlyProgress?.[monthKey]?.[key];
-  if (fromMonthlyProgress !== undefined && fromMonthlyProgress !== null && fromMonthlyProgress !== '') {
-    return fromMonthlyProgress;
-  }
+const MONTH_ORDER = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
-  const measures = proj?.measures || {};
-  const measureKey = key === 'pp' ? 'PAC' : key === 'pt' ? 'PTC' : key === 'fp' ? 'FAC' : 'FTC';
-  return measures?.[measureKey]?.[monthKey] ?? '';
+const getLatestCumulativeValue = (proj, progressKey, measuresKey) => {
+  // Scan monthlyProgress in reverse order — latest cumulative month first
+  const mp = proj?.monthlyProgress || {};
+  for (let i = MONTH_ORDER.length - 1; i >= 0; i--) {
+    const month = MONTH_ORDER[i];
+    const raw = mp[month]?.[progressKey];
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const n = parseFloat(String(raw).replace('%', ''));
+      if (!isNaN(n)) return n;
+    }
+  }
+  // Fallback: scan measures store
+  const meas = proj?.measures?.[measuresKey] || {};
+  for (let i = MONTH_ORDER.length - 1; i >= 0; i--) {
+    const month = MONTH_ORDER[i];
+    const raw = meas[month];
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const n = parseFloat(String(raw).replace('%', ''));
+      if (!isNaN(n)) return n;
+    }
+  }
+  return null;
 };
 
-const getProgressPct = (proj, numKey, denKey, fallbackPct) => {
-  const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-  const values = [];
-  for (const month of months) {
-    // Strip '%' before converting to number
-    const numRaw = getMonthlyValue(proj, month, numKey);
-    const denRaw = getMonthlyValue(proj, month, denKey);
-    if (numRaw === '' || denRaw === '' || numRaw === undefined || denRaw === undefined) continue;
-    const numStr = String(numRaw).replace('%', '');
-    const denStr = String(denRaw).replace('%', '');
-    const num = Number(numStr);
-    const den = Number(denStr);
-    if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) continue;
-    values.push((num / den) * 100);
+// Physical Progress (%) = (PAC ÷ PTC) × 100 using latest cumulative values
+// Falls back to static physicalProgress field
+const getPhysicalPct = (proj) => {
+  const pac = getLatestCumulativeValue(proj, 'pp', 'PAC');
+  const ptc = getLatestCumulativeValue(proj, 'pt', 'PTC');
+  if (pac !== null && ptc !== null && ptc > 0) {
+    return Math.max(0, Math.min(100, Math.round((pac / ptc) * 100 * 10) / 10));
   }
-
-  if (!values.length) {
-    const fallback = Number.parseFloat(fallbackPct);
-    return Number.isFinite(fallback) ? fallback : 0;
+  // Fallback to static field
+  const raw = proj?.physicalProgress;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const n = parseFloat(String(raw).replace('%', ''));
+    if (!isNaN(n)) return Math.max(0, Math.min(100, n));
   }
-
-  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return Math.max(0, Math.min(100, Math.round(average * 10) / 10));
+  return 0;
 };
 
-const getPhysicalPct = (proj) => getProgressPct(proj, 'pp', 'pt', proj?.physicalProgress);
 
 const ProjectListView = ({ projects, filter, onOpenModal, onBack, isVO }) => {
   const [aid, setAid] = useState(null);

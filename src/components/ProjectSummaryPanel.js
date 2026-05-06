@@ -308,9 +308,42 @@ const ProjectSummaryPanel = ({ project, onClose, onSave, isVO, fullPage = false 
   const [dragging,   setDragging]    = useState(false);
   const fileRef = useRef();
 
-  const phys = parseFloat(proj.physicalProgress) || 0;
-  const fin  = parseFloat(proj.financialProgress) || 0;
+  // ── Progress calculation: PAC ÷ PTC × 100 (Financial: FAC ÷ FTC × 100) ────
+  // Uses latest cumulative month value from monthlyProgress, falling back to measures, then static field
+  const MONTH_ORDER_SP = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const getLatestVal = (progressKey, measuresKey) => {
+    const mp = proj?.monthlyProgress || {};
+    for (let i = MONTH_ORDER_SP.length - 1; i >= 0; i--) {
+      const month = MONTH_ORDER_SP[i];
+      const raw = mp[month]?.[progressKey];
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const n = parseFloat(String(raw).replace('%', ''));
+        if (!isNaN(n)) return n;
+      }
+    }
+    const meas = proj?.measures?.[measuresKey] || {};
+    for (let i = MONTH_ORDER_SP.length - 1; i >= 0; i--) {
+      const month = MONTH_ORDER_SP[i];
+      const raw = meas[month];
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const n = parseFloat(String(raw).replace('%', ''));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return null;
+  };
+  const _pac = getLatestVal('pp', 'PAC');
+  const _ptc = getLatestVal('pt', 'PTC');
+  const _fac = getLatestVal('fp', 'FAC');
+  const _ftc = getLatestVal('ft', 'FTC');
+  const phys = (_pac !== null && _ptc !== null && _ptc > 0)
+    ? Math.round((_pac / _ptc) * 100 * 10) / 10
+    : (parseFloat(proj.physicalProgress) || 0);
+  const fin  = (_fac !== null && _ftc !== null && _ftc > 0)
+    ? Math.round((_fac / _ftc) * 100 * 10) / 10
+    : (parseFloat(proj.financialProgress) || 0);
   const color = pColor(phys);
+
 
   // ── Media helpers ────────────────────────────────────────────────────────
   const media = proj.media || [];

@@ -5,35 +5,104 @@ import CustomTooltip from './CustomTooltip';
 
 const DASHBOARD_BUDGET_LINES = Object.keys(budgetLineConfig);
 
-const getProgressFromMeasures = (proj, monthlyNumKey, monthlyDenKey, numKey, denKey, fallbackPct) => {
-  const measures = proj?.measures || {};
-  const monthlyProgress = proj?.monthlyProgress || {};
-  let vals = [];
-  const debugVals = [];
-  for (const m of months) {
-    const numRaw = monthlyProgress?.[m]?.[monthlyNumKey] ?? measures?.[numKey]?.[m];
-    const denRaw = monthlyProgress?.[m]?.[monthlyDenKey] ?? measures?.[denKey]?.[m];
-    if (numRaw === '' || denRaw === '' || numRaw === undefined || denRaw === undefined) continue;
-    // Strip '%' if present before converting to number
-    const numStr = String(numRaw).replace('%', '');
-    const denStr = String(denRaw).replace('%', '');
-    const num = Number(numStr); const den = Number(denStr);
-    if (!Number.isFinite(num) || !Number.isFinite(den) || den === 0) continue;
-    const pct = (num / den) * 100;
-    if (!Number.isFinite(pct)) continue;
-    vals.push(pct);
-    debugVals.push({ month: m, [monthlyNumKey]: numRaw, [monthlyDenKey]: denRaw, pct: pct.toFixed(1) });
+/* ─────────────────────────────────────────────────────────
+   CORE HELPER: Get the latest cumulative PAC/PTC/FAC/FTC
+   for a project. Priority order:
+   1. monthlyProgress[month].pp / .pt / .fp / .ft  (Data Entry Table input)
+   2. measures.PAC/PTC/FAC/FTC[month]              (legacy measures store)
+   For cumulative data: use the LAST month that has a valid value.
+   Fallback: use static physicalProgress / financialProgress field.
+───────────────────────────────────────────────────────── */
+const MONTH_ORDER = [
+  'january','february','march','april','may','june',
+  'july','august','september','october','november','december'
+];
+
+const getLatestCumulativeValue = (proj, progressKey, measuresKey) => {
+  // 1. Scan monthlyProgress in reverse order (latest month first)
+  const mp = proj?.monthlyProgress || {};
+  for (let i = MONTH_ORDER.length - 1; i >= 0; i--) {
+    const month = MONTH_ORDER[i];
+    const raw = mp[month]?.[progressKey];
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const n = parseFloat(String(raw).replace('%', ''));
+      if (!isNaN(n)) return n;
+    }
   }
-  if (proj?.id <= 2) {
-    console.log(`[${monthlyNumKey}/${monthlyDenKey}]`, JSON.stringify(debugVals));
+  // 2. Fallback: scan measures[measuresKey] in reverse order
+  const meas = proj?.measures?.[measuresKey] || {};
+  for (let i = MONTH_ORDER.length - 1; i >= 0; i--) {
+    const month = MONTH_ORDER[i];
+    const raw = meas[month];
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const n = parseFloat(String(raw).replace('%', ''));
+      if (!isNaN(n)) return n;
+    }
   }
-  if (!vals.length) { const fb = parseFloat(fallbackPct); return Number.isFinite(fb) ? fb : 0; }
-  const avg = vals.reduce((a,v)=>a+v,0)/vals.length;
-  return Math.round(Math.max(0,Math.min(100,avg))*10)/10;
+  return null;
 };
 
-const getPhysicalPct  = (proj) => getProgressFromMeasures(proj,'pp','pt','PAC','PTC',proj?.physicalProgress);
-const getFinancialPct = (proj) => getProgressFromMeasures(proj,'fp','ft','FAC','FTC',proj?.financialProgress);
+// Physical Progress (%) = (PAC ÷ PTC) × 100
+// PAC = latest cumulative Physical Achieved, PTC = latest cumulative Physical Target
+const getPhysicalProgress = (proj) => {
+  const pac = getLatestCumulativeValue(proj, 'pp', 'PAC');
+  const ptc = getLatestCumulativeValue(proj, 'pt', 'PTC');
+
+  if (pac !== null && ptc !== null && ptc > 0) {
+    return Math.round((pac / ptc) * 100 * 10) / 10;
+  }
+
+  // Fallback to static physicalProgress field
+  const raw = proj?.physicalProgress;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const n = parseFloat(String(raw).replace('%', ''));
+    if (!isNaN(n)) return n;
+  }
+  return 0;
+};
+
+// Financial Progress (%) = (FAC ÷ FTC) × 100
+// FAC = latest cumulative Financial Achieved, FTC = latest cumulative Financial Target
+const getFinancialProgress = (proj) => {
+  const fac = getLatestCumulativeValue(proj, 'fp', 'FAC');
+  const ftc = getLatestCumulativeValue(proj, 'ft', 'FTC');
+
+  if (fac !== null && ftc !== null && ftc > 0) {
+    return Math.round((fac / ftc) * 100 * 10) / 10;
+  }
+
+  // Fallback to static financialProgress field
+  const raw = proj?.financialProgress;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const n = parseFloat(String(raw).replace('%', ''));
+    if (!isNaN(n)) return n;
+  }
+  return 0;
+};
+
+// Physical Variance = PAC - PTC (latest cumulative values)
+const getPhysicalVariance = (proj) => {
+  const pac = getLatestCumulativeValue(proj, 'pp', 'PAC') ?? 0;
+  const ptc = getLatestCumulativeValue(proj, 'pt', 'PTC') ?? 0;
+  return pac - ptc;
+};
+
+// Financial Variance = FTC - FAC (latest cumulative values)
+const getFinancialVariance = (proj) => {
+  const fac = getLatestCumulativeValue(proj, 'fp', 'FAC') ?? 0;
+  const ftc = getLatestCumulativeValue(proj, 'ft', 'FTC') ?? 0;
+  return ftc - fac;
+};
+
+// Schedule Status: Green if PAC >= PTC (progress 100%+), Red if behind
+const getScheduleStatus = (proj) => getPhysicalProgress(proj) >= 100 ? 'green' : 'red';
+
+// Budget Status: Green if FAC <= FTC (progress 100% or less), Red if over budget
+const getBudgetStatus = (proj) => getFinancialProgress(proj) <= 100 ? 'green' : 'red';
+
+const getPhysicalPct  = (proj) => getPhysicalProgress(proj);
+const getFinancialPct = (proj) => getFinancialProgress(proj);
+
 
 const STAT_CONFIG = [
   {
@@ -42,17 +111,17 @@ const STAT_CONFIG = [
     getVal:(f)=>f.length,
   },
   {
-    id:'ONGOING',   icon:'⏳', lbl:'Ongoing',
+    id:'ONGOING',   icon:'⏳', lbl:'Ongoing (Physical < 100%)',
     color:'#d97706',
     getVal:(f)=>f.filter(p=>getPhysicalPct(p)<100).length,
   },
   {
-    id:'DELAYED',   icon:'⚠️', lbl:'Delayed',
+    id:'DELAYED',   icon:'⚠️', lbl:'Behind Schedule (Variance < 0)',
     color:'#dc2626',
-    getVal:(f)=>f.filter(p=>p.reasonsForDelays).length,
+    getVal:(f)=>f.filter(p=>getPhysicalVariance(p)<0).length,
   },
   {
-    id:'COMPLETED', icon:'✅', lbl:'Completed',
+    id:'COMPLETED', icon:'✅', lbl:'Completed (Physical >= 100%)',
     color:'#0f766e',
     getVal:(f)=>f.filter(p=>getPhysicalPct(p)>=100).length,
   },
@@ -63,8 +132,15 @@ const PIE_COLORS = {
   financial: ['#0e7490', 'var(--panel-2)'],
 };
 
-function ProgressPieCard({ title, subtitle, value, palette }) {
+function ProgressPieCard({ title, subtitle, value, palette, variance, status }) {
   const pct  = Math.max(0, Math.min(100, Number(value) || 0));
+  // For display: clamp to 100%, but show actual value if over 100%
+  const displayPct = Number(value) || 0;
+  const isOver100 = displayPct > 100;
+  
+  const statusColor = status === 'green' ? '#10b981' : status === 'red' ? '#ef4444' : '#6b7280';
+  const statusLabel = status === 'green' ? '✓ On Track' : status === 'red' ? '⚠ At Risk' : 'Pending';
+  
   const data = [
     { name: 'Completed', value: pct },
     { name: 'Remaining', value: Math.max(0, 100 - pct) },
@@ -85,9 +161,14 @@ function ProgressPieCard({ title, subtitle, value, palette }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="dc">
-          <div className="dc-p">{pct.toFixed(1)}%</div>
-          <div className="dc-s">average</div>
+          <div className="dc-p">{isOver100 ? displayPct.toFixed(1) : pct.toFixed(1)}%</div>
+          <div className="dc-s">{isOver100 ? 'over target' : 'average'}</div>
         </div>
+      </div>
+      <div style={{ marginTop: 12, padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, borderLeft: `3px solid ${statusColor}` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginBottom: 4 }}>{statusLabel}</div>
+        <div style={{ fontSize: 11, color: 'var(--tx-3)' }}>Variance: <span style={{ fontWeight: 700, color: variance >= 0 ? '#10b981' : '#ef4444' }}>{variance >= 0 ? '+' : ''}{variance.toFixed(1)}</span></div>
+        <div style={{ fontSize: 10, color: 'var(--tx-4)', marginTop: 4 }}>Actual: {displayPct.toFixed(1)}%</div>
       </div>
     </div>
   );
@@ -184,8 +265,22 @@ const Dashboard = ({ projects, onCardClick, selectedProjectId, onSelectProject }
       </div>
 
       <div className="cr2" style={{ marginTop:4 }}>
-        <ProgressPieCard title="Physical Progress" subtitle={selectedProject ? 'Selected project physical completion' : 'Average physical completion for current filter'} value={pp} palette={PIE_COLORS.physical} />
-        <ProgressPieCard title="Financial Progress" subtitle={selectedProject ? 'Selected project financial completion' : 'Average financial completion for current filter'} value={fp} palette={PIE_COLORS.financial} />
+        <ProgressPieCard 
+          title="Physical Progress (PAC ÷ PTC)" 
+          subtitle={selectedProject ? 'Selected project completion' : 'Average across current filter'} 
+          value={pp} 
+          variance={selectedProject ? getPhysicalVariance(selectedProject) : filtered.reduce((a, p) => a + getPhysicalVariance(p), 0) / Math.max(1, filtered.length)}
+          status={selectedProject ? getScheduleStatus(selectedProject) : (filtered.filter(p => getPhysicalPct(p) >= 100).length > filtered.length / 2 ? 'green' : 'red')}
+          palette={PIE_COLORS.physical} 
+        />
+        <ProgressPieCard 
+          title="Financial Progress (FAC ÷ FTC)" 
+          subtitle={selectedProject ? 'Selected project spending' : 'Average across current filter'} 
+          value={fp} 
+          variance={selectedProject ? getFinancialVariance(selectedProject) : filtered.reduce((a, p) => a + getFinancialVariance(p), 0) / Math.max(1, filtered.length)}
+          status={selectedProject ? getBudgetStatus(selectedProject) : (filtered.filter(p => getFinancialPct(p) <= 100).length > filtered.length / 2 ? 'green' : 'red')}
+          palette={PIE_COLORS.financial} 
+        />
       </div>
     </>
   );

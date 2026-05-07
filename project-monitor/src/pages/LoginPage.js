@@ -13,7 +13,7 @@ const CREDENTIALS = [
   { username: 'pmu_north_hub',  password: 'PMU#North2026',      role: 'PMU',       department: 'North Zone', label: 'PMU North Coordinator',  short: 'PMU', access: 'Read & Write' },
   { username: 'pmu_south_hub',  password: 'PMU#South2026',      role: 'PMU',       department: 'South Zone', label: 'PMU South Coordinator',  short: 'PMU', access: 'Read & Write' },
   { username: 'urban_east_cell',password: 'Urban#East2026',     role: 'DDG_URBAN', department: 'East Urban', label: 'DDG Urban East',         short: 'UD',  access: 'Read & Write' },
-  { username: 'urban_west_cell',password: 'Urban#West2026',     role: 'DDG_URBAN', department: 'West Urban', label: 'DDG Urban West',         short: 'UD',  access: 'Read & Write' },
+  { username: 'urban_west_cell',password: 'Urban#West2026',     role: 'DDG_URBAN', department: 'West Urban', label: 'DDG Urban West',         short: 'UD',  access: 'Read & Write' },  
 ];
 
 /* Hint data shown on login cards */
@@ -40,7 +40,7 @@ export default function LoginPage({ onLogin }) {
     setStep('login');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e) => {       
     e.preventDefault();
     setError('');
     const normalizedUsername = username.trim().toLowerCase();

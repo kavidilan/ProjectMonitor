@@ -102,7 +102,7 @@ function ProgressPieCard({ title, subtitle, value, palette }) {
               {data.map((_, i) => <Cell key={i} fill={palette[i]} />)}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: 'var(--tx-2)', fontWeight: 700 }} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: 'var(--tx-2)', fontWeight: 700}} />
           </PieChart>
         </ResponsiveContainer>
         <div className="dc">

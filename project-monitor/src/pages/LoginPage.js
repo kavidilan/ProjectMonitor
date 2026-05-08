@@ -448,7 +448,7 @@ export default function LoginPage({ onLogin }) {
               <span style={{ height: 1, width: 28, background: '#c5d9e8', display: 'inline-block' }} />
             </div>
             <h1>Project Monitor Suite</h1>
-            <p>Annual Action Plan 2026<br />Centralized portfolio control for strategic planning &amp; progress oversight.</p>
+            <p>Annual Action Plan 2026<br />Centralized portfolio control for strategic planning &amp; progress oversight</p>
           </div>
 
           <div className="lp-portals">  
@@ -482,7 +482,7 @@ export default function LoginPage({ onLogin }) {
                 <img src={UDA_LOGO_SRC} alt="Urban Development Authority" />
               </div>
               <h2>Project Monitor Suite</h2>
-              <p>Annual Action Plan 2026 — Centralized control room for portfolio governance and progress visibility.</p>
+              <p>Annual Action Plan 2026 — Centralized control room for portfolio governance and progress visibility</p>
             </div>
 
             <div className="lp-brand-stats">

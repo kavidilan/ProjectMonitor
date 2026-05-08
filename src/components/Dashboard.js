@@ -107,7 +107,7 @@ function ProgressPieCard({ title, subtitle, value, palette }) {
         </ResponsiveContainer>
         <div className="dc">
           <div className="dc-p">{pct.toFixed(1)}%</div>
-          <div className="dc-s">average</div>
+          <div className="dc-s">Average</div>
         </div>
       </div>
     </div>
@@ -162,7 +162,7 @@ const Dashboard = ({ projects, onCardClick }) => {
             </span>
           </div>
           <h1 style={{ fontSize:26, fontFamily:'var(--fh)', fontWeight:800, color:'#fff', margin:0, letterSpacing:'-0.4px' }}>
-            Project Health Overview
+            Project Overview
           </h1>
           <p style={{ color:'rgba(255,255,255,0.6)', fontSize:13, margin:'6px 0 0', fontWeight:500 }}>
             Urban Development Authority — Annual Action Plan portfolio snapshot

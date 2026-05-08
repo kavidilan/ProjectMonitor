@@ -238,7 +238,7 @@ const Dashboard = ({ projects, onCardClick, selectedProjectId, onSelectProject }
 
       <div className="fb" style={{ background:'var(--panel)', borderRadius:12, padding:'14px 16px', border:'1px solid var(--bd)', marginBottom:16 }}>
         <div className="fg">
-          <span className="fl">Filter by Budget Line</span>
+          <span className="fl">Filter by Budget line</span>
           <select className="fs" value={bf} onChange={e => { setBf(e.target.value); onSelectProject?.(''); }} style={{ minWidth:280 }}>
             <option value="ALL">All Budget Lines</option>
             {DASHBOARD_BUDGET_LINES.map(b => <option key={b} value={b}>{b}</option>)}

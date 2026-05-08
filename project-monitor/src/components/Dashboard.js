@@ -148,7 +148,7 @@ function ProgressPieCard({ title, subtitle, value, palette, variance, status }) 
   const displayPct = Number(value) || 0;
   const isOver100 = displayPct > 100;
   
-  const statusColor = status === 'green' ? '#10b981' : status === 'red' ? '#ef4444' : '#6b7280';
+  const statusColor = status === 'green ' ? '#10b981' : status === 'red' ? '#ef4444' : '#6b7280';
   const statusLabel = status === 'green' ? '✓ On Track' : status === 'red' ? '⚠ At Risk' : 'Pending';
   
   const data = [

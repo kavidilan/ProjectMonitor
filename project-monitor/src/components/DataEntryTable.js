@@ -66,7 +66,7 @@ export default function DataEntryTable({
   /* ── field change handlers ── */
   const onField = (p, field) => (e) => {
     const next = e?.target?.value ?? '';
-    if (typeof hpc === 'function') hpc(p?.id, field, next);
+    if (typeof hpc === 'function') hpc(getRowKey(p), field, next);
   };
 
   const onMonthly = (p, month, sub) => (e) => {
@@ -75,17 +75,17 @@ export default function DataEntryTable({
     const current = p?.monthlyProgress ?? {};
     const monthData = current[monthKey] ?? {};
     const updated = { ...current, [monthKey]: { ...monthData, [sub]: next } };
-    if (typeof hpc === 'function') hpc(p?.id, 'monthlyProgress', updated);
+    if (typeof hpc === 'function') hpc(getRowKey(p), 'monthlyProgress', updated);
   };
 
   const getMonthly = (p, month, sub) => {
     const monthKey = month.toLowerCase();
-    const fromMonthlyProgress = p?.monthlyProgress?.[monthKey]?.[sub];
-    if (fromMonthlyProgress !== undefined && fromMonthlyProgress !== null && fromMonthlyProgress !== '') {
-      return String(fromMonthlyProgress).replace('%', '');
+    const monthProgress = p?.monthlyProgress?.[monthKey];
+    if (monthProgress && Object.prototype.hasOwnProperty.call(monthProgress, sub)) {
+      return String(monthProgress[sub] ?? '');
     }
-    if (sub === 'pt') return String(p?.measures?.PTC?.[monthKey] ?? '').replace('%', '');
-    if (sub === 'pp') return String(p?.measures?.PAC?.[monthKey] ?? '').replace('%', '');
+    if (sub === 'pt') return String(p?.measures?.PTC?.[monthKey] ?? '');
+    if (sub === 'pp') return String(p?.measures?.PAC?.[monthKey] ?? '');
     if (sub === 'ft') return p?.measures?.FTC?.[monthKey] ?? '';
     if (sub === 'fp') return p?.measures?.FAC?.[monthKey] ?? '';
     return '';
@@ -93,7 +93,7 @@ export default function DataEntryTable({
 
   const onTextarea = (p, field) => (e) => {
     const next = e?.target?.value ?? '';
-    if (typeof hpc === 'function') hpc(p?.id, field, next);
+    if (typeof hpc === 'function') hpc(getRowKey(p), field, next);
   };
 
   const totalCols = BASE_COLS + PROGRESS_COLSPAN + RIGHT_COLS;
@@ -810,7 +810,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="numeric"
+                        inputMode="text"
                         value={formatDate(p?.startDate)}
                         onChange={onField(p, 'startDate')}
                         placeholder="YYYY-MM-DD"
@@ -823,7 +823,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="numeric"
+                        inputMode="text"
                         value={formatDate(p?.endDate)}
                         onChange={onField(p, 'endDate')}
                         placeholder="YYYY-MM-DD"
@@ -836,7 +836,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.tec ?? ''}
                         onChange={onField(p, 'tec')}
                         placeholder="Rs.Mn"
@@ -849,7 +849,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.allocation2026 ?? ''}
                         onChange={onField(p, 'allocation2026')}
                         placeholder="Rs.Mn"
@@ -862,7 +862,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.awardedSum ?? ''}
                         onChange={onField(p, 'awardedSum')}
                         placeholder="Rs"
@@ -875,7 +875,7 @@ export default function DataEntryTable({
                       <textarea
                         className="det-input"
                         rows={1}
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.revisedCost ?? ''}
                         onChange={onField(p, 'revisedCost')}
                         placeholder="—"
@@ -899,7 +899,7 @@ export default function DataEntryTable({
                     <td className="det-td det-td-pct" onClick={(e) => e.stopPropagation()}>
                       <input
                         className="det-input"
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.physicalProgress ?? ''}
                         onChange={onField(p, 'physicalProgress')}
                         placeholder="e.g. 39"
@@ -911,7 +911,7 @@ export default function DataEntryTable({
                     <td className="det-td det-td-pct" onClick={(e) => e.stopPropagation()}>
                       <input
                         className="det-input"
-                        inputMode="decimal"
+                        inputMode="text"
                         value={p?.financialProgress ?? ''}
                         onChange={onField(p, 'financialProgress')}
                         placeholder="e.g. 38"
@@ -923,25 +923,19 @@ export default function DataEntryTable({
                     {MONTHS.map((m) => {
                       const ptcRaw = getMonthly(p, m, 'pt');
                       const pacRaw = getMonthly(p, m, 'pp');
+                      const ipRaw = getMonthly(p, m, 'ip');
                       const ptc = parseFloat(ptcRaw);
                       const pac = parseFloat(pacRaw);
-                      const hasData = !isNaN(ptc) && !isNaN(pac) && ptc > 0;
-                      const ipVal = hasData ? (pac / ptc) * 100 : null;
-                      const ipText = hasData ? `${ipVal.toFixed(1)}%` : '—';
-                      const ipClass = !hasData
-                        ? 'det-ip-grey'
-                        : ipVal >= 100
-                        ? 'det-ip-green'
-                        : ipVal >= 50
-                        ? 'det-ip-amber'
-                        : 'det-ip-red';
+                      const hasManualIp = ipRaw !== '' && !Number.isNaN(parseFloat(ipRaw));
+                      const hasAutoIp = !isNaN(ptc) && !isNaN(pac) && ptc > 0;
+                      const ipVal = hasManualIp ? parseFloat(ipRaw) : hasAutoIp ? (pac / ptc) * 100 : null;
 
                       return (
                         <React.Fragment key={m}>
                           <td className="det-td det-td-month" onClick={(e) => e.stopPropagation()}>
                             <input
                               className="det-input-tiny"
-                              inputMode="decimal"
+                              inputMode="text"
                               placeholder="PTC"
                               value={ptcRaw}
                               onChange={onMonthly(p, m, 'pt')}
@@ -951,7 +945,7 @@ export default function DataEntryTable({
                           <td className="det-td det-td-month" onClick={(e) => e.stopPropagation()}>
                             <input
                               className="det-input-tiny"
-                              inputMode="decimal"
+                              inputMode="text"
                               placeholder="PAC"
                               value={pacRaw}
                               onChange={onMonthly(p, m, 'pp')}
@@ -961,7 +955,7 @@ export default function DataEntryTable({
                           <td className="det-td det-td-month" onClick={(e) => e.stopPropagation()}>
                             <input
                               className="det-input-tiny"
-                              inputMode="decimal"
+                              inputMode="text"
                               placeholder="FTC"
                               value={getMonthly(p, m, 'ft')}
                               onChange={onMonthly(p, m, 'ft')}
@@ -971,21 +965,28 @@ export default function DataEntryTable({
                           <td className="det-td det-td-month" onClick={(e) => e.stopPropagation()}>
                             <input
                               className="det-input-tiny"
-                              inputMode="decimal"
+                              inputMode="text"
                               placeholder="FAC"
                               value={getMonthly(p, m, 'fp')}
                               onChange={onMonthly(p, m, 'fp')}
                               title={`${m} – Financial Achieved Cumulative`}
                             />
                           </td>
-                          {/* Progress – auto-calculated, read-only */}
+                          {/* Progress – editable (with auto fallback from PAC/PTC) */}
                           <td
                             className="det-td det-td-ip"
-                            title={hasData
-                              ? `Progress: ${pac} / ${ptc} * 100 = ${ipVal.toFixed(2)}%`
-                              : 'Enter PTC and PAC to calculate'}
+                            title={ipVal === null
+                              ? 'Enter progress % directly, or enter PTC and PAC to auto-calculate'
+                              : `Current progress: ${ipVal.toFixed(2)}%`}
                           >
-                            <span className={`det-ip-badge ${ipClass}`}>{ipText}</span>
+                            <input
+                              className="det-input-tiny"
+                              inputMode="text"
+                              placeholder={hasAutoIp ? `${(pac / ptc * 100).toFixed(1)}` : 'IP%'}
+                              value={ipRaw}
+                              onChange={onMonthly(p, m, 'ip')}
+                              title={`${m} – In Progress %`}
+                            />
                           </td>
                         </React.Fragment>
                       );
@@ -1058,7 +1059,7 @@ export default function DataEntryTable({
                         onClick={() => {
                           if (isVO) return;
                           const ok = window.confirm('Delete this row? Click Save Changes to update database.');
-                          if (ok && typeof hdel === 'function') hdel(p?.id);
+                          if (ok && typeof hdel === 'function') hdel(getRowKey(p));
                         }}
                         disabled={isVO}
                         title={isVO ? 'Read-only role cannot delete' : 'Delete this row'}

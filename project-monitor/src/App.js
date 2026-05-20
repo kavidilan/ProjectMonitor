@@ -103,6 +103,20 @@ export default function App() {
   const vis = projects;
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
+  const ensureProjectHasId = (project, index = 0) => {
+    if (!project || (project.id !== undefined && project.id !== null && project.id !== '')) return project;
+    return { ...project, id: Date.now() + index };
+  };
+
+  const getProjectKey = (project) => project?._id ?? project?.id;
+
+  const isSameProject = (project, key) => {
+    if (key === undefined || key === null) return false;
+    const byId = project?.id !== undefined && project?.id !== null && String(project.id) === String(key);
+    const byMongoId = project?._id !== undefined && project?._id !== null && String(project._id) === String(key);
+    return byId || byMongoId;
+  };
+
   const getMeasureProgress = (project, numeratorProgressKey, denominatorProgressKey, numeratorMeasureKey, denominatorMeasureKey, fallbackField) => {
     const monthlyValues = months
       .map((month) => {
@@ -132,6 +146,9 @@ export default function App() {
     physicalProgress: getMeasureProgress(project, 'pp', 'pt', 'PAC', 'PTC', 'physicalProgress'),
     financialProgress: getMeasureProgress(project, 'fp', 'ft', 'FAC', 'FTC', 'financialProgress'),
   });
+
+  const normalizeProjectForState = (project, index = 0) => normalizeProgressFields(ensureProjectHasId(project, index));
+  const normalizeProjectsForState = (list = []) => list.map((p, i) => normalizeProjectForState(p, i));
 
   // Development mode - log API configuration
   useEffect(() => {
@@ -182,7 +199,7 @@ export default function App() {
       }
       const data = await res.json();
       if (Array.isArray(data) && data.length) {
-        setProjects(data.map(normalizeProgressFields));
+        setProjects(normalizeProjectsForState(data));
         markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: `Loaded ${data.length} projects from MongoDB` });
         console.log(`✅ Reloaded ${data.length} projects from MongoDB`);
       } else {
@@ -209,7 +226,7 @@ export default function App() {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-user-role': user.role, 'x-user-name': user.username },
-        body: JSON.stringify(projectsToSave),
+        body: JSON.stringify(normalizeProjectsForState(projectsToSave)),
       });
       if (res.status === 403) {
         const msg = await readErrorMessage(res);
@@ -253,7 +270,7 @@ export default function App() {
         const data = await res.json();
         if (cancelled) return;
         if (Array.isArray(data) && data.length) {
-          setProjects(data.map(normalizeProgressFields));
+          setProjects(normalizeProjectsForState(data));
           markSync({ source: 'mongodb', status: 'ok', code: String(res.status), message: `Loaded ${data.length} projects from MongoDB` });
           console.log(`✅ Successfully loaded ${data.length} projects`);
         } else {
@@ -281,43 +298,45 @@ export default function App() {
     if (delayed.length) setTimeout(() => toast(`⚠ ${delayed.length} project${delayed.length > 1 ? 's are' : ' is'} currently delayed`, 'warn'), 800);
   }, [user, loading, vis, toast]);
 
-  const hpc = (id, f, v) => setProjects(ps => ps.map(p => p.id === id ? { ...p, [f]: v } : p));
-  const hmc = (id, k, m, v) => setProjects(ps => ps.map((p) => {
-    if (p.id !== id) return p;
+  const hpc = (rowKey, f, v) => setProjects(ps => ps.map((p) => (isSameProject(p, rowKey) ? { ...p, [f]: v } : p)));
+  const hmc = (rowKey, k, m, v) => setProjects(ps => ps.map((p) => {
+    if (!isSameProject(p, rowKey)) return p;
     const nextProject = {
       ...p,
       measures: { ...p.measures, [k]: { ...(p.measures?.[k] || {}), [m]: v } },
     };
     return normalizeProgressFields(nextProject);
   }));
-  const hdel = async (id) => {
-    const row = projects.find((p) => p.id === id);
+  const hdel = async (rowKey) => {
+    const row = projects.find((p) => isSameProject(p, rowKey));
     if (!row) return;
 
-    setProjects((ps) => ps.filter((p) => p.id !== id));
+    const deleteKey = getProjectKey(row);
+
+    setProjects((ps) => ps.filter((p) => !isSameProject(p, rowKey)));
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${id}`, {
+      const res = await fetch(`${API_BASE}/api/projects/${deleteKey}`, {
         method: 'DELETE',
         headers: { 'x-user-role': user?.role, 'x-user-name': user?.username },
       });
 
       if (res.status === 403) {
         const msg = await readErrorMessage(res);
-        setProjects((ps) => (ps.some((p) => p.id === id) ? ps : [...ps, row]));
+        setProjects((ps) => (ps.some((p) => isSameProject(p, rowKey)) ? ps : [...ps, row]));
         toast(msg || 'You are not allowed to delete this project.', 'warn');
         return;
       }
 
       if (!res.ok) {
         const msg = await readErrorMessage(res);
-        setProjects((ps) => (ps.some((p) => p.id === id) ? ps : [...ps, row]));
+        setProjects((ps) => (ps.some((p) => isSameProject(p, rowKey)) ? ps : [...ps, row]));
         throw new Error(msg || `Delete failed (${res.status})`);
       }
 
       toast('Project deleted', 'success');
       await reloadProjects();
     } catch (e) {
-      setProjects((ps) => (ps.some((p) => p.id === id) ? ps : [...ps, row]));
+      setProjects((ps) => (ps.some((p) => isSameProject(p, rowKey)) ? ps : [...ps, row]));
       toast(`Delete failed. ${e?.message || ''}`, 'error');
     }
   };
@@ -347,7 +366,8 @@ export default function App() {
 
   const handleSaveModal = async (updatedProj, retryCount = 0) => {
     const maxRetries = 2;
-    const next = projects.map(p => p.id === updatedProj.id ? updatedProj : p);
+    const updatedKey = getProjectKey(updatedProj);
+    const next = projects.map((p) => (isSameProject(p, updatedKey) ? updatedProj : p));
     setProjects(next);
     toast('Saving project management data…', 'info');
     try {
